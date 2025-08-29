@@ -1,0 +1,86 @@
+services:
+  # Reverse Proxy - Single entry point
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: fluxrouter-proxy
+    ports:
+      - "80:80"
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - web
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.fluxrouter.service=proxy"
+      - "com.fluxrouter.description=Reverse proxy and load balancer"
+
+  # Web Server - Internal only
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: fluxrouter-web
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.fluxrouter.service=web"
+      - "com.fluxrouter.description=Static web server"
+
+  # Backend API Server - Internal only
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fluxrouter-backend
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - DEBUG=${DEBUG:-false}
+      - SECRET_KEY=${SECRET_KEY:-change-in-production}
+      - HOST=0.0.0.0
+      - PORT=5000
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    labels:
+      - "com.fluxrouter.service=backend"
+      - "com.fluxrouter.description=Flask API backend server"
+
+networks:
+  # Frontend network for proxy external access
+  frontend:
+    driver: bridge
+    name: fluxrouter-frontend
+    
+  # Backend network for internal service communication
+  backend:
+    driver: bridge
+    name: fluxrouter-backend
+    internal: false  # Set to true for complete isolation in production
+
+volumes:
+  # Future use for persistent data
+  nginx_logs:
+    name: fluxrouter-nginx-logs

@@ -1,0 +1,14 @@
+# FluxRouter Backend Dependencies
+# Pinned versions for security and reproducibility
+
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Production WSGI server
+gunicorn==21.2.0
+
+# Security and monitoring (optional for Phase 2, ready for Phase 3)
+# flask-limiter==3.5.0
+# flask-cors==4.0.0
+
+
