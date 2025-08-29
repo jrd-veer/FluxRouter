@@ -2,7 +2,9 @@
 FROM alpine:3.18
 
 # Install NGINX and create directories
-RUN apk add --no-cache nginx wget && \
+RUN apk add --no-cache \
+    nginx~=1.24 \
+    wget~=1.21 && \
     mkdir -p /var/log/nginx && \
     mkdir -p /var/lib/nginx/tmp && \
     mkdir -p /etc/nginx/conf.d && \
