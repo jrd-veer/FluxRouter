@@ -17,7 +17,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: >
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider",
+         "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -37,7 +38,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: >
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider",
+         "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -63,7 +65,8 @@ services:
     restart: unless-stopped
     healthcheck:
       test: >
-        ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+        ["CMD", "python3", "-c",
+         "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -77,7 +80,6 @@ networks:
   frontend:
     driver: bridge
     name: fluxrouter-frontend
-    
   # Backend network for internal service communication
   backend:
     driver: bridge

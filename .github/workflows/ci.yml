@@ -1,7 +1,7 @@
 ---
 name: FluxRouter Pipeline
 
-on:
+"on":
   workflow_dispatch:
   push:
     branches: [main, dev]
