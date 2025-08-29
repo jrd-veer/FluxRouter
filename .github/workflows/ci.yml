@@ -1,6 +1,7 @@
 name: FluxRouter Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches: [ master, dev ]
   pull_request:
@@ -61,10 +62,10 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Create environment file
+    - name: Create environment file with secure secret
       run: |
         cp env.example .env
-        echo "SECRET_KEY=ci-test-secret-key-$(date +%s)" >> .env
+        echo "SECRET_KEY=$(openssl rand -hex 32)" >> .env
 
     - name: Build Docker images
       run: |
