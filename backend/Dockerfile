@@ -7,8 +7,7 @@ FROM alpine:3.18
 RUN apk add --no-cache \
     python3~=3.11 \
     py3-pip~=23.1 \
-    py3-wheel~=0.40 \
-    && python3 -m pip install --upgrade pip
+    py3-wheel~=0.40
 
 # Create application user for security
 RUN addgroup -g 1000 -S appuser && \
