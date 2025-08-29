@@ -7,7 +7,7 @@ Secure Flask application providing API endpoints for the FluxRouter.
 import os
 import logging
 from datetime import datetime
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 
 # Configure logging
@@ -23,6 +23,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 app.config['DEBUG'] = os.environ.get('DEBUG', 'False').lower() == 'true'
 
+
 # Security headers middleware
 @app.after_request
 def add_security_headers(response):
@@ -34,6 +35,7 @@ def add_security_headers(response):
     # Remove server identification
     response.headers.pop('Server', None)
     return response
+
 
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
@@ -52,6 +54,7 @@ def health_check():
         logger.error(f"Health check failed: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Health check failed'}), 500
 
+
 # Additional API endpoints for demonstration
 @app.route('/api/info', methods=['GET'])
 def api_info():
@@ -68,6 +71,7 @@ def api_info():
     }
     return jsonify(info_data), 200
 
+
 @app.route('/api/status', methods=['GET'])
 def api_status():
     """System status endpoint"""
@@ -79,6 +83,7 @@ def api_status():
     }
     return jsonify(status_data), 200
 
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
@@ -89,6 +94,7 @@ def not_found(error):
         'status_code': 404
     }), 404
 
+
 @app.errorhandler(405)
 def method_not_allowed(error):
     """Handle 405 errors"""
@@ -97,6 +103,7 @@ def method_not_allowed(error):
         'message': 'The method is not allowed for this resource',
         'status_code': 405
     }), 405
+
 
 @app.errorhandler(500)
 def internal_error(error):
@@ -108,6 +115,8 @@ def internal_error(error):
         'status_code': 500
     }), 500
 
+
+# Handle all other HTTP exceptions
 @app.errorhandler(HTTPException)
 def handle_http_exception(error):
     """Handle all other HTTP exceptions"""
@@ -117,16 +126,15 @@ def handle_http_exception(error):
         'status_code': error.code
     }), error.code
 
+
 if __name__ == '__main__':
     # Get configuration from environment
     host = os.environ.get('HOST', '0.0.0.0')
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
-    
+
     logger.info(f"Starting FluxRouter Backend API on {host}:{port}")
     logger.info(f"Debug mode: {debug}")
-    
+
     # Run the application
     app.run(host=host, port=port, debug=debug)
-
-
