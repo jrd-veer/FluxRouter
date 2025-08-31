@@ -77,6 +77,17 @@ jobs:
         run: |
           docker compose up -d
 
+      - name: Verify Docker Network Configuration
+        run: |
+          echo "Verifying that the backend network is isolated..."
+          docker network inspect fluxrouter-backend | grep '"Internal": true'
+          if [ $? -ne 0 ]; then
+            echo "::error::Network 'fluxrouter-backend' is not set to internal: true!"
+            docker network inspect fluxrouter-backend
+            exit 1
+          fi
+          echo "✅ Backend network is correctly configured as internal."
+
       - name: Wait for services to be ready
         run: |
           echo "Waiting for services to start..."
