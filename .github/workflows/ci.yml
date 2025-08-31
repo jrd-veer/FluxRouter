@@ -114,38 +114,27 @@ jobs:
           echo "=== Initial Web Logs ==="
           docker compose logs web | tail -10
 
-          # Wait for backend first (it's independent)
-          echo "Waiting for backend to be healthy..."
-          timeout 90 bash -c '
-            while ! docker inspect fluxrouter-backend \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Backend status: $(docker inspect fluxrouter-backend --format="{{.State.Health.Status}}")"
+          # Wait for all services to be healthy using docker compose ps
+          echo "Waiting for all services to be healthy..."
+          timeout 120 bash -c '
+            while true; do
+              # Count healthy containers
+              HEALTHY_COUNT=$(docker compose ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
+              TOTAL_COUNT=$(docker compose ps --format "{{.Name}}" | wc -l)
+              
+              echo "Healthy containers: $HEALTHY_COUNT/$TOTAL_COUNT"
+              
+              # Check if all containers are healthy
+              if [ "$HEALTHY_COUNT" -eq "$TOTAL_COUNT" ]; then
+                break
+              fi
+              
+              # Show current status
+              docker compose ps
               sleep 5
             done
           '
-          echo "✅ Backend is healthy"
-
-          # Wait for web service
-          echo "Waiting for web to be healthy..."
-          timeout 90 bash -c '
-            while ! docker inspect fluxrouter-web \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Web status: $(docker inspect fluxrouter-web --format="{{.State.Health.Status}}")"
-              sleep 5
-            done
-          '
-          echo "✅ Web is healthy"
-
-          # Finally wait for proxy (depends on others)
-          echo "Waiting for proxy to be healthy..."
-          timeout 90 bash -c '
-            while ! docker inspect fluxrouter-proxy \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Proxy status: $(docker inspect fluxrouter-proxy --format="{{.State.Health.Status}}")"
-              sleep 5
-            done
-          '
-          echo "✅ Proxy is healthy"
+          echo "✅ All services are healthy"
 
       - name: Run Phase 1 Verification Tests
         run: |
@@ -237,7 +226,24 @@ jobs:
           docker compose up --scale backend=2 -d
           # Wait for services to be healthy
           echo "⏳ Waiting for services to be healthy..."
-          sleep 60
+          timeout 120 bash -c '
+            while true; do
+              # Count healthy containers
+              HEALTHY_COUNT=$(docker compose ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
+              TOTAL_COUNT=$(docker compose ps --format "{{.Name}}" | wc -l)
+              
+              echo "Healthy containers: $HEALTHY_COUNT/$TOTAL_COUNT"
+              
+              # Check if all containers are healthy
+              if [ "$HEALTHY_COUNT" -eq "$TOTAL_COUNT" ]; then
+                break
+              fi
+              
+              # Show current status
+              docker compose ps
+              sleep 5
+            done
+          '
           # Verify deployment
           if curl -k -s https://localhost/api/health | jq -e '.status == "ok"' > /dev/null; then
             echo "✅ Deployment successful!"
