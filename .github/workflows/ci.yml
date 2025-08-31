@@ -133,7 +133,7 @@ jobs:
           chmod +x phase1-verify.sh phase2-verify.sh test-lib.sh
           CI_MODE=true ./phase1-verify.sh
 
-      - name: Run Phase 2 Verification Tests  
+      - name: Run Phase 2 Verification Tests
         run: |
           echo "🧪 Running Phase 2 verification tests..."
           cd tests
