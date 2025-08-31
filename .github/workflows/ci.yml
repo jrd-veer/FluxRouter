@@ -4,7 +4,7 @@ name: FluxRouter Pipeline
 "on":
   workflow_dispatch:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'feature/*']
   pull_request:
     branches: [main]
 
@@ -85,22 +85,46 @@ jobs:
           # Check container status
           docker compose ps
 
-          # Wait for health checks
-          timeout 60 bash -c '
-            while ! docker inspect fluxrouter-proxy \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Waiting for proxy to be healthy..."
-              sleep 5
-            done
-          '
+          # Check container logs for debugging
+          echo "=== Initial Backend Logs ==="
+          docker compose logs backend | tail -10
+          echo "=== Initial Proxy Logs ==="
+          docker compose logs proxy | tail -10
+          echo "=== Initial Web Logs ==="
+          docker compose logs web | tail -10
 
-          timeout 60 bash -c '
+          # Wait for backend first (it's independent)
+          echo "Waiting for backend to be healthy..."
+          timeout 90 bash -c '
             while ! docker inspect fluxrouter-backend \
               --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Waiting for backend to be healthy..."
+              echo "Backend status: $(docker inspect fluxrouter-backend --format="{{.State.Health.Status}}")"
               sleep 5
             done
           '
+          echo "✅ Backend is healthy"
+
+          # Wait for web service
+          echo "Waiting for web to be healthy..."
+          timeout 90 bash -c '
+            while ! docker inspect fluxrouter-web \
+              --format="{{.State.Health.Status}}" | grep -q healthy; do
+              echo "Web status: $(docker inspect fluxrouter-web --format="{{.State.Health.Status}}")"
+              sleep 5
+            done
+          '
+          echo "✅ Web is healthy"
+
+          # Finally wait for proxy (depends on others)
+          echo "Waiting for proxy to be healthy..."
+          timeout 90 bash -c '
+            while ! docker inspect fluxrouter-proxy \
+              --format="{{.State.Health.Status}}" | grep -q healthy; do
+              echo "Proxy status: $(docker inspect fluxrouter-proxy --format="{{.State.Health.Status}}")"
+              sleep 5
+            done
+          '
+          echo "✅ Proxy is healthy"
 
       - name: Test web server connectivity
         run: |
