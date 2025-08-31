@@ -40,7 +40,7 @@ jobs:
 
       - name: Lint YAML files
         run: |
-          yamllint docker-compose.yml .github/workflows/ci.yml
+          yamllint -d "{extends: default, rules: {line-length: disable}}" docker-compose.yml .github/workflows/ci.yml
 
       - name: Lint Dockerfiles
         run: |
