@@ -7,16 +7,25 @@
 # Source the shared test library
 source "$(dirname "$0")/test-lib.sh"
 
+# CI Mode - Skip interactive elements
+CI_MODE=${CI_MODE:-false}
+
 main() {
-    echo -e "${BOLD}${BLUE}"
-    echo "╔═══════════════════════════════════════════════════════════════════╗"
-    echo "║                FluxRouter Phase 2 Verification                    ║"
-    echo "║  Validates Phase 2 specific objectives and requirements           ║"
-    echo "╚═══════════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-    
-    echo -e "${YELLOW}Starting Phase 2 verification at $(date)${NC}\n"
-    echo -e "${CYAN}Note: This script assumes Phase 1 is working and tests only NEW Phase 2 features${NC}\n"
+    if [[ "$CI_MODE" == "true" ]]; then
+        echo "FluxRouter Phase 2 Verification - CI Mode"
+        echo "Starting Phase 2 verification at $(date)"
+        echo "Note: This assumes Phase 1 is working and tests only NEW Phase 2 features"
+    else
+        echo -e "${BOLD}${BLUE}"
+        echo "╔═══════════════════════════════════════════════════════════════════╗"
+        echo "║                FluxRouter Phase 2 Verification                    ║"
+        echo "║  Validates Phase 2 specific objectives and requirements           ║"
+        echo "╚═══════════════════════════════════════════════════════════════════╝"
+        echo -e "${NC}"
+        
+        echo -e "${YELLOW}Starting Phase 2 verification at $(date)${NC}\n"
+        echo -e "${CYAN}Note: This script assumes Phase 1 is working and tests only NEW Phase 2 features${NC}\n"
+    fi
     
     print_header "PHASE 2 PREREQUISITES"
     run_test "Backend Directory Structure" "test -d ../backend && test -f ../backend/Dockerfile && test -f ../backend/app.py" ""

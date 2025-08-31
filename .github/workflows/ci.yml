@@ -126,92 +126,18 @@ jobs:
           '
           echo "✅ Proxy is healthy"
 
-      - name: Test web server connectivity
+      - name: Run Phase 1 Verification Tests
         run: |
-          # Test main web page
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/)
-          if [ "$response" != "200" ]; then
-            echo "Web server test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ Web server test passed"
+          echo "🧪 Running Phase 1 verification tests..."
+          cd tests
+          chmod +x phase1-verify.sh phase2-verify.sh test-lib.sh
+          CI_MODE=true ./phase1-verify.sh
 
-      - name: Test backend API endpoints
+      - name: Run Phase 2 Verification Tests  
         run: |
-          # Test health endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost/api/health)
-          if [ "$response" != "200" ]; then
-            echo "API health test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ API health test passed"
-
-          # Test info endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost/api/info)
-          if [ "$response" != "200" ]; then
-            echo "API info test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ API info test passed"
-
-          # Test status endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost/api/status)
-          if [ "$response" != "200" ]; then
-            echo "API status test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ API status test passed"
-
-      - name: Test security headers
-        run: |
-          # Test security headers
-          headers=$(curl -s -I http://localhost/)
-
-          if ! echo "$headers" | grep -q "X-Frame-Options: DENY"; then
-            echo "❌ X-Frame-Options header missing"
-            exit 1
-          fi
-          echo "✅ X-Frame-Options header present"
-
-          if ! echo "$headers" | grep -q "Content-Security-Policy"; then
-            echo "❌ Content-Security-Policy header missing"
-            exit 1
-          fi
-          echo "✅ Content-Security-Policy header present"
-
-      - name: Test blocked HTTP methods
-        run: |
-          # Test TRACE method blocking
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X TRACE http://localhost/)
-          if [ "$response" != "405" ]; then
-            echo "❌ TRACE method not blocked (got HTTP $response)"
-            exit 1
-          fi
-          echo "✅ TRACE method properly blocked"
-
-          # Test OPTIONS method blocking
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X OPTIONS http://localhost/)
-          if [ "$response" != "405" ]; then
-            echo "❌ OPTIONS method not blocked (got HTTP $response)"
-            exit 1
-          fi
-          echo "✅ OPTIONS method properly blocked"
-
-      - name: Test network isolation
-        run: |
-          # Verify only proxy port is exposed
-          exposed_ports=$(docker compose ps --format json | \
-            grep -o '"PublishedPort":[0-9]*' | cut -d: -f2 | sort -u)
-          if [ "$exposed_ports" != "80" ]; then
-            echo "❌ Unexpected ports exposed: $exposed_ports"
-            exit 1
-          fi
-          echo "✅ Network isolation verified - only port 80 exposed"
+          echo "🧪 Running Phase 2 verification tests..."
+          cd tests
+          CI_MODE=true ./phase2-verify.sh
 
       - name: Show service logs on failure
         if: failure()

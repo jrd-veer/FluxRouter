@@ -7,15 +7,23 @@
 # Source the shared test library
 source "$(dirname "$0")/test-lib.sh"
 
+# CI Mode - Skip interactive elements and use absolute paths
+CI_MODE=${CI_MODE:-false}
+
 main() {
-    echo -e "${BOLD}${BLUE}"
-    echo "╔═══════════════════════════════════════════════════════════════════╗"
-    echo "║                FluxRouter Phase 1 Verification                    ║"
-    echo "║  Validates all Phase 1 objectives and requirements                ║"
-    echo "╚═══════════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-    
-    echo -e "${YELLOW}Starting verification at $(date)${NC}\n"
+    if [[ "$CI_MODE" == "true" ]]; then
+        echo "FluxRouter Phase 1 Verification - CI Mode"
+        echo "Starting verification at $(date)"
+    else
+        echo -e "${BOLD}${BLUE}"
+        echo "╔═══════════════════════════════════════════════════════════════════╗"
+        echo "║                FluxRouter Phase 1 Verification                    ║"
+        echo "║  Validates all Phase 1 objectives and requirements                ║"
+        echo "╚═══════════════════════════════════════════════════════════════════╝"
+        echo -e "${NC}"
+        
+        echo -e "${YELLOW}Starting verification at $(date)${NC}\n"
+    fi
     
     print_header "PREREQUISITES"
     run_test "Docker Availability" "command -v docker" ""
