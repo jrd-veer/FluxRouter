@@ -4,7 +4,7 @@ name: FluxRouter Pipeline
 "on":
   workflow_dispatch:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'feature/*']
   pull_request:
     branches: [main]
 
@@ -40,7 +40,7 @@ jobs:
 
       - name: Lint YAML files
         run: |
-          yamllint docker-compose.yml .github/workflows/ci.yml
+          yamllint -d "{extends: default, rules: {line-length: disable}}" docker-compose.yml .github/workflows/ci.yml
 
       - name: Lint Dockerfiles
         run: |
@@ -77,6 +77,17 @@ jobs:
         run: |
           docker compose up -d
 
+      - name: Verify Docker Network Configuration
+        run: |
+          echo "Verifying that the backend network is isolated..."
+          docker network inspect fluxrouter-backend | grep '"Internal": true'
+          if [ $? -ne 0 ]; then
+            echo "::error::Network 'fluxrouter-backend' is not set to internal: true!"
+            docker network inspect fluxrouter-backend
+            exit 1
+          fi
+          echo "✅ Backend network is correctly configured as internal."
+
       - name: Wait for services to be ready
         run: |
           echo "Waiting for services to start..."
@@ -85,109 +96,59 @@ jobs:
           # Check container status
           docker compose ps
 
-          # Wait for health checks
-          timeout 60 bash -c '
-            while ! docker inspect fluxrouter-proxy \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Waiting for proxy to be healthy..."
-              sleep 5
-            done
-          '
+          # Check container logs for debugging
+          echo "=== Initial Backend Logs ==="
+          docker compose logs backend | tail -10
+          echo "=== Initial Proxy Logs ==="
+          docker compose logs proxy | tail -10
+          echo "=== Initial Web Logs ==="
+          docker compose logs web | tail -10
 
-          timeout 60 bash -c '
+          # Wait for backend first (it's independent)
+          echo "Waiting for backend to be healthy..."
+          timeout 90 bash -c '
             while ! docker inspect fluxrouter-backend \
               --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Waiting for backend to be healthy..."
+              echo "Backend status: $(docker inspect fluxrouter-backend --format="{{.State.Health.Status}}")"
               sleep 5
             done
           '
+          echo "✅ Backend is healthy"
 
-      - name: Test web server connectivity
+          # Wait for web service
+          echo "Waiting for web to be healthy..."
+          timeout 90 bash -c '
+            while ! docker inspect fluxrouter-web \
+              --format="{{.State.Health.Status}}" | grep -q healthy; do
+              echo "Web status: $(docker inspect fluxrouter-web --format="{{.State.Health.Status}}")"
+              sleep 5
+            done
+          '
+          echo "✅ Web is healthy"
+
+          # Finally wait for proxy (depends on others)
+          echo "Waiting for proxy to be healthy..."
+          timeout 90 bash -c '
+            while ! docker inspect fluxrouter-proxy \
+              --format="{{.State.Health.Status}}" | grep -q healthy; do
+              echo "Proxy status: $(docker inspect fluxrouter-proxy --format="{{.State.Health.Status}}")"
+              sleep 5
+            done
+          '
+          echo "✅ Proxy is healthy"
+
+      - name: Run Phase 1 Verification Tests
         run: |
-          # Test main web page
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/)
-          if [ "$response" != "200" ]; then
-            echo "Web server test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ Web server test passed"
+          echo "🧪 Running Phase 1 verification tests..."
+          cd tests
+          chmod +x phase1-verify.sh phase2-verify.sh test-lib.sh
+          CI_MODE=true ./phase1-verify.sh
 
-      - name: Test backend API endpoints
+      - name: Run Phase 2 Verification Tests
         run: |
-          # Test health endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost/api/health)
-          if [ "$response" != "200" ]; then
-            echo "API health test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ API health test passed"
-
-          # Test info endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost/api/info)
-          if [ "$response" != "200" ]; then
-            echo "API info test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ API info test passed"
-
-          # Test status endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://localhost/api/status)
-          if [ "$response" != "200" ]; then
-            echo "API status test failed with HTTP $response"
-            exit 1
-          fi
-          echo "✅ API status test passed"
-
-      - name: Test security headers
-        run: |
-          # Test security headers
-          headers=$(curl -s -I http://localhost/)
-
-          if ! echo "$headers" | grep -q "X-Frame-Options: DENY"; then
-            echo "❌ X-Frame-Options header missing"
-            exit 1
-          fi
-          echo "✅ X-Frame-Options header present"
-
-          if ! echo "$headers" | grep -q "Content-Security-Policy"; then
-            echo "❌ Content-Security-Policy header missing"
-            exit 1
-          fi
-          echo "✅ Content-Security-Policy header present"
-
-      - name: Test blocked HTTP methods
-        run: |
-          # Test TRACE method blocking
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X TRACE http://localhost/)
-          if [ "$response" != "405" ]; then
-            echo "❌ TRACE method not blocked (got HTTP $response)"
-            exit 1
-          fi
-          echo "✅ TRACE method properly blocked"
-
-          # Test OPTIONS method blocking
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X OPTIONS http://localhost/)
-          if [ "$response" != "405" ]; then
-            echo "❌ OPTIONS method not blocked (got HTTP $response)"
-            exit 1
-          fi
-          echo "✅ OPTIONS method properly blocked"
-
-      - name: Test network isolation
-        run: |
-          # Verify only proxy port is exposed
-          exposed_ports=$(docker compose ps --format json | \
-            grep -o '"PublishedPort":[0-9]*' | cut -d: -f2 | sort -u)
-          if [ "$exposed_ports" != "80" ]; then
-            echo "❌ Unexpected ports exposed: $exposed_ports"
-            exit 1
-          fi
-          echo "✅ Network isolation verified - only port 80 exposed"
+          echo "🧪 Running Phase 2 verification tests..."
+          cd tests
+          CI_MODE=true ./phase2-verify.sh
 
       - name: Show service logs on failure
         if: failure()

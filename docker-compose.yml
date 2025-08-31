@@ -85,8 +85,7 @@ networks:
   backend:
     driver: bridge
     name: fluxrouter-backend
-    internal: false  # Set to true for complete isolation in production
-
+    internal: true  # No external access to the backend
 volumes:
   # Future use for persistent data
   nginx_logs:
