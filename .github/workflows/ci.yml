@@ -78,11 +78,9 @@ jobs:
         run: |
           # Tag images with commit SHA and latest
           COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-8)
-          
           docker tag fluxrouter-proxy:latest fluxrouter-proxy:$COMMIT_SHA
-          docker tag fluxrouter-web:latest fluxrouter-web:$COMMIT_SHA  
+          docker tag fluxrouter-web:latest fluxrouter-web:$COMMIT_SHA
           docker tag fluxrouter-backend:latest fluxrouter-backend:$COMMIT_SHA
-          
           echo "Tagged images with commit SHA: $COMMIT_SHA"
 
       - name: Start services with scaling
@@ -233,17 +231,13 @@ jobs:
       - name: Deploy with zero downtime
         run: |
           echo "🚀 Deploying FluxRouter to production..."
-          
           # Stop old containers gracefully
           docker compose down --timeout 30 || true
-          
           # Start new containers with scaling
           docker compose up --scale backend=2 -d
-          
           # Wait for services to be healthy
           echo "⏳ Waiting for services to be healthy..."
           sleep 60
-          
           # Verify deployment
           if curl -k -s https://localhost/api/health | jq -e '.status == "ok"' > /dev/null; then
             echo "✅ Deployment successful!"
@@ -256,15 +250,12 @@ jobs:
       - name: Post-deployment verification
         run: |
           echo "🔍 Running post-deployment verification..."
-          
           # Check all services are healthy
           docker compose ps
-          
           # Test key endpoints
           curl -k -s https://localhost/ > /dev/null
           curl -k -s https://localhost/api/health > /dev/null
           curl -k -s https://localhost/api/info > /dev/null
-          
           echo "✅ Post-deployment verification complete"
 
       - name: Cleanup old images
