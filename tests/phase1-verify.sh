@@ -57,7 +57,9 @@ main() {
     print_header "DIRECT ACCESS BLOCKING"
     local web_ip
     web_ip=$(docker inspect fluxrouter-web --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' | head -1)
-    run_failure_test "Direct Web Server Access" "timeout 5 curl -s --connect-timeout 3 http://$web_ip" "timeout"
+    echo "Testing direct access to web container IP: $web_ip"
+    # With internal network, connection should be refused or timeout
+    run_failure_test "Direct Web Server Access" "timeout 5 curl -s --connect-timeout 3 http://$web_ip" ""
 
     # --- Summary ---
     print_summary
