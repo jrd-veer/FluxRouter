@@ -6,6 +6,7 @@ Secure Flask application providing API endpoints for the FluxRouter.
 
 import os
 import logging
+import socket
 from datetime import datetime
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
@@ -46,7 +47,8 @@ def health_check():
             'status': 'ok',
             'timestamp': datetime.utcnow().isoformat(),
             'version': '2.0.0',
-            'service': 'fluxrouter-backend'
+            'service': 'fluxrouter-backend',
+            'instance': os.environ.get('INSTANCE_ID', socket.gethostname())
         }
         logger.info("Health check requested - status: ok")
         return jsonify(health_data), 200
@@ -79,7 +81,8 @@ def api_status():
         'uptime': 'available',
         'environment': os.environ.get('ENVIRONMENT', 'development'),
         'debug_mode': app.config['DEBUG'],
-        'request_count': 'not_tracked'  # Could be improved with Redis/database
+        'request_count': 'not_tracked',  # Could be improved with Redis/database
+        'instance': os.environ.get('INSTANCE_ID', socket.gethostname())
     }
     return jsonify(status_data), 200
 
