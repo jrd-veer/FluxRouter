@@ -1,6 +1,6 @@
 # FluxRouter - Containerized Web Platform
 
-A fully containerized web platform built with modern DevOps practices, featuring a secure reverse proxy architecture, a dynamic API service, and a fully automated CI/CD pipeline.
+A containerized web platform built with DevOps practices, featuring a secure reverse proxy architecture, dynamic API service, and an automated CI/CD pipeline.
 
 ## 📋 Project Phases
 
@@ -34,7 +34,7 @@ A fully containerized web platform built with modern DevOps practices, featuring
 
 ## 🏛️ Architecture and Design
 
-The platform is designed around a classic reverse proxy model, providing a secure and scalable foundation. All inbound traffic is handled by a single NGINX proxy that routes requests to the appropriate internal services, which are completely isolated from the host machine.
+The solution is designed around a reverse proxy model, providing a secure and scalable foundation. All inbound traffic is handled by a single NGINX proxy that routes requests to the appropriate internal services, which are isolated from the host machine.
 
 ### Overall Architecture
 
@@ -161,7 +161,7 @@ graph TD
 - Docker and Docker Compose
 - Git
 
-### Scaling Backend Services
+o use### Scaling Backend Services
 
 FluxRouter supports horizontal scaling of backend services:
 
@@ -220,39 +220,191 @@ docker compose ps
 
 ---
 
-## 🧪 Testing
+## 🧪 Manual Testing and Usage
 
-### Manual Testing
+This section provides a comprehensive guide to manually testing the functionality of the FluxRouter platform, with tests mapped directly to the project objectives for each phase.
 
-Once the platform is running, you can test the different components.
+### Basic Docker Compose Commands
 
-```bash
-# Test the web server
-curl http://localhost/
+Before you begin, here are the essential Docker Compose commands for managing the services:
 
-# Test the API health endpoint
-curl http://localhost/api/health | jq .
+- **Start all services in detached mode:**
+  
+  ```bash
+  docker compose up -d
+  ```
 
-# Test API info endpoint
-curl http://localhost/api/info | jq .
+- **Stop all services:**
+  
+  ```bash
+  docker compose down
+  ```
 
-# Test for security headers
-curl -I http://localhost/
+- **View the status of all running containers:**
+  
+  ```bash
+  docker compose ps
+  ```
 
-# Verify that dangerous HTTP methods are blocked (should return 405 Not Allowed)
-curl -X TRACE http://localhost/
-```
+- **View logs for all services (or a specific one):**
+  
+  ```bash
+  # Tail logs for all services
+  docker compose logs -f
+  
+  # View logs for a specific service (e.g., backend)
+  docker compose logs -f backend
+  ```
 
-### Automated Testing & CI/CD
+- **Run a command inside a running container:**
+  
+  ```bash
+  # Open a shell inside the backend container
+  docker compose exec backend /bin/sh
+  ```
 
-The project includes two test scripts for local validation:
+### Phase 1: Basic Level Verification
 
-- `./tests/phase1-verify.sh`: Validates all Phase 1 objectives.
-- `./tests/phase2-verify.sh`: Performs quick checks on Phase 2 functionality.
+#### Objective: Build a minimal local web platform using containers.
 
-For comprehensive, automated testing, the GitHub Actions CI/CD pipeline is used.
+1. **Reverse Proxy and Web Server Containers**
+   
+   - **Requirement**: A reverse proxy (NGINX) and one or more web server containers serving static HTML.
+   - **Verification**:
+     - Check that all three initial containers (`proxy`, `web`, `backend`) are running:
+       
+       ```bash
+       docker compose ps
+       ```
+     - Access the web server through the proxy. The response should contain "Hello from Web Server via Reverse Proxy!".
+       
+       ```bash
+       curl http://localhost/
+       ```
 
----
+2. **Network Isolation**
+   
+   - **Requirement**: The reverse proxy is the single entry point. Web server containers are not directly accessible from the host.
+   - **Verification**:
+     - Confirm that only port 80 on the `proxy` service is exposed by inspecting the output of `docker compose ps`.
+     - Attempting to access the `web` container directly will fail. To prove this, find the `web` container's IP on the internal `fluxrouter-backend` network and try to curl it from the host machine (this command should hang and time out).
+       
+       ```bash
+       # This will fail, proving the container is not exposed
+       WEB_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker compose ps -q web))
+       curl http://$WEB_IP
+       ```
+
+3. **Security Hardening**
+   
+   - **Requirement**: The reverse proxy blocks specific HTTP methods and adds security headers.
+   - **Verification**:
+     - Check for security headers like `X-Frame-Options` and `Content-Security-Policy`.
+       
+       ```bash
+       curl -I http://localhost/
+       ```
+     - Verify that dangerous methods like `TRACE` are blocked. This should return a `405 Not Allowed` response.
+       
+       ```bash
+       curl -X TRACE -I http://localhost/
+       ```
+
+### Phase 2: Intermediate Level Verification
+
+#### Objective: Extend the solution with a backend application and CI/CD automation.
+
+1. **Backend Application Container**
+   
+   - **Requirement**: A simple API (Flask) with a health endpoint at `/api/health`.
+   - **Verification**:
+     - Test the API's health endpoint through the reverse proxy. It should return a JSON response with `{"status": "ok"}`.
+       
+       ```bash
+       curl http://localhost/api/health | jq .
+       ```
+
+2. **NGINX Routing for Web and API**
+   
+   - **Requirement**: NGINX proxies both static (`/`) and API (`/api`) traffic to the correct containers.
+   - **Verification**:
+     - Test the web endpoint (should be served by the `web` container).
+       
+       ```bash
+       curl http://localhost/
+       ```
+     - Test an API endpoint (should be served by the `backend` container).
+       
+       ```bash
+       curl http://localhost/api/info | jq .
+       ```
+
+3. **Docker Health Checks**
+   
+   - **Requirement**: `HEALTHCHECK` instructions are added for both backend and web servers.
+   - **Verification**:
+     - The `STATUS` column in the `docker compose ps` output should show `(healthy)` for the `web` and `backend` services after a few seconds.
+       
+       ```bash
+       docker compose ps
+       ```
+
+### Phase 3: Expert Level Verification
+
+#### Objective: Design a production-like system with HTTPS, observability, and robust deployment.
+
+1. **Enable HTTPS**
+   
+   - **Requirement**: NGINX serves traffic over HTTPS using a self-signed certificate, and HTTP requests are redirected to HTTPS.
+   - **Verification**:
+     - Access the site over HTTPS. Use the `-k` flag with `curl` to ignore self-signed certificate warnings.
+       
+       ```bash
+       curl -k https://localhost/
+       ```
+     - Check that an HTTP request receives a `301 Moved Permanently` redirect to the HTTPS URL.
+       
+       ```bash
+       curl -I http://localhost/
+       ```
+
+2. **Extended Testing (Unit Tests)**
+   
+   - **Requirement**: Unit tests are available for the backend application.
+   - **Verification**:
+     - Execute the `pytest` suite inside the `backend` container.
+       
+       ```bash
+       docker compose exec backend pytest
+       ```
+
+3. **Failure Handling and Load Balancing**
+   
+   - **Requirement**: The system can handle container failure and balance load across multiple backend instances.
+   
+   - **Verification**:
+     
+     - Start the platform with multiple backend replicas:
+       
+       ```bash
+       docker compose up -d --scale backend=3
+       ```
+     
+     - Check the logs of the `proxy` to see which backend container is serving requests. You should see requests being distributed among the replicas (`backend-1`, `backend-2`, `backend-3`).
+       
+       ```bash
+       docker compose logs -f proxy
+       ```
+     
+     - Simulate a failure by killing one of the backend containers. Requests should automatically be routed to the remaining healthy instances.
+       
+       ```bash
+       # Kill one backend container
+       docker compose stop backend-2
+       
+       # Continue to curl the API; requests should still be served without error
+       curl http://localhost/api/health
+       ```
 
 ## 🚀 CI/CD Pipeline
 
