@@ -82,6 +82,8 @@ run_test "Backend Instances Healthy" "docker ps --filter 'name=fluxrouter-backen
 print_header "LOAD BALANCING TESTS"
 run_test "Multiple Backend Instances Running" "docker ps --format '{{.Names}}' | grep -c fluxrouter-backend" "2"
 run_test "Load Balancing Functional" "curl -k -s https://localhost/api/health | jq -r '.instance' | grep -E '^[a-f0-9]{12}$|^fluxrouter-backend'" ""
+run_test "NGINX Upstream Configuration" "docker exec fluxrouter-proxy grep -A5 'upstream backend_api' /etc/nginx/nginx.conf" "backend:5000"
+run_test "Load Balancer Proxy Pass" "docker exec fluxrouter-proxy grep 'proxy_pass.*backend_api' /etc/nginx/nginx.conf" "http://backend_api"
 
 print_header "NETWORK SECURITY TESTS"
 run_test "Backend Network Isolation" "docker network inspect fluxrouter-backend | jq -r '.[].Internal'" "true"
@@ -97,7 +99,7 @@ fi
 # Use shared test library summary function
 print_summary
 
-echo -e "\n${GREEN}${BOLD}🎉 ALL PHASE 3 EXTENDED TESTS COMPLETED!${NC}"
+echo -e "\n${GREEN}${BOLD}ALL PHASE 3 EXTENDED TESTS COMPLETED!${NC}"
 echo -e "${GREEN}✅ Unit tests executed with pytest${NC}"
 echo -e "${GREEN}✅ NGINX configuration validated${NC}"
 echo -e "${GREEN}✅ SSL/HTTPS functionality verified${NC}"
