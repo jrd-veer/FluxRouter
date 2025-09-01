@@ -50,7 +50,7 @@ jobs:
 
       - name: Validate Docker Compose
         run: |
-          docker compose config
+          docker compose -p fluxrouter config
 
   build:
     name: Build and Test
@@ -71,7 +71,7 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker compose build
+          docker compose -p fluxrouter build
 
       - name: Tag Docker images
         if: github.ref == 'refs/heads/main'
@@ -85,7 +85,7 @@ jobs:
 
       - name: Start services with scaling
         run: |
-          docker compose up --scale backend=2 -d
+          docker compose -p fluxrouter up --scale backend=2 -d
 
       - name: Verify Docker Network Configuration
         run: |
@@ -104,23 +104,23 @@ jobs:
           sleep 30
 
           # Check container status
-          docker compose ps
+          docker compose -p fluxrouter ps
 
           # Check container logs for debugging
           echo "=== Initial Backend Logs ==="
-          docker compose logs backend | tail -10
+          docker compose -p fluxrouter logs backend | tail -10
           echo "=== Initial Proxy Logs ==="
-          docker compose logs proxy | tail -10
+          docker compose -p fluxrouter logs proxy | tail -10
           echo "=== Initial Web Logs ==="
-          docker compose logs web | tail -10
+          docker compose -p fluxrouter logs web | tail -10
 
           # Wait for all services to be healthy using docker compose ps
           echo "Waiting for all services to be healthy..."
           timeout 120 bash -c '
             while true; do
               # Count healthy containers
-              HEALTHY_COUNT=$(docker compose ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
-              TOTAL_COUNT=$(docker compose ps --format "{{.Name}}" | wc -l)
+              HEALTHY_COUNT=$(docker compose -p fluxrouter ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
+              TOTAL_COUNT=$(docker compose -p fluxrouter ps --format "{{.Name}}" | wc -l)
               
               echo "Healthy containers: $HEALTHY_COUNT/$TOTAL_COUNT"
               
@@ -130,7 +130,7 @@ jobs:
               fi
               
               # Show current status
-              docker compose ps
+              docker compose -p fluxrouter ps
               sleep 5
             done
           '
@@ -143,11 +143,11 @@ jobs:
           docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
           echo
           echo "=== Docker Compose containers ==="
-          docker compose ps --format "table {{.Name}}\t{{.Service}}\t{{.Status}}"
+          docker compose -p fluxrouter ps --format "table {{.Name}}\t{{.Service}}\t{{.Status}}"
           echo
           echo "=== Backend containers specifically ==="
           docker ps --format '{{.Names}}' | grep backend || echo "No containers with 'backend' in name"
-          docker compose ps --format '{{.Name}}' | grep backend || echo "No compose services with 'backend'"
+          docker compose -p fluxrouter ps --format '{{.Name}}' | grep backend || echo "No compose services with 'backend'"
           echo
           echo "=== Container name patterns ==="
           echo "Containers matching 'fluxrouter-backend-[0-9]+' pattern:"
@@ -178,16 +178,16 @@ jobs:
         if: failure()
         run: |
           echo "=== Proxy Logs ==="
-          docker compose logs proxy
+          docker compose -p fluxrouter logs proxy
           echo "=== Web Logs ==="
-          docker compose logs web
+          docker compose -p fluxrouter logs web
           echo "=== Backend Logs ==="
-          docker compose logs backend
+          docker compose -p fluxrouter logs backend
 
       - name: Cleanup
         if: always()
         run: |
-          docker compose down -v
+          docker compose -p fluxrouter down -v
           docker system prune -f
 
   security-scan:
@@ -234,22 +234,22 @@ jobs:
 
       - name: Build production images
         run: |
-          docker compose build
+          docker compose -p fluxrouter build
 
       - name: Deploy with zero downtime
         run: |
           echo "🚀 Deploying FluxRouter to production..."
           # Stop old containers gracefully
-          docker compose down --timeout 30 || true
+          docker compose -p fluxrouter down --timeout 30 || true
           # Start new containers with scaling
-          docker compose up --scale backend=2 -d
+          docker compose -p fluxrouter up --scale backend=2 -d
           # Wait for services to be healthy
           echo "⏳ Waiting for services to be healthy..."
           timeout 120 bash -c '
             while true; do
               # Count healthy containers
-              HEALTHY_COUNT=$(docker compose ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
-              TOTAL_COUNT=$(docker compose ps --format "{{.Name}}" | wc -l)
+              HEALTHY_COUNT=$(docker compose -p fluxrouter ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
+              TOTAL_COUNT=$(docker compose -p fluxrouter ps --format "{{.Name}}" | wc -l)
               
               echo "Healthy containers: $HEALTHY_COUNT/$TOTAL_COUNT"
               
@@ -259,7 +259,7 @@ jobs:
               fi
               
               # Show current status
-              docker compose ps
+              docker compose -p fluxrouter ps
               sleep 5
             done
           '
@@ -268,7 +268,7 @@ jobs:
             echo "✅ Deployment successful!"
           else
             echo "❌ Deployment failed - rolling back..."
-            docker compose down
+            docker compose -p fluxrouter down
             exit 1
           fi
 
@@ -276,7 +276,7 @@ jobs:
         run: |
           echo "🔍 Running post-deployment verification..."
           # Check all services are healthy
-          docker compose ps
+          docker compose -p fluxrouter ps
           # Test key endpoints
           curl -k -s https://localhost/ > /dev/null
           curl -k -s https://localhost/api/health > /dev/null

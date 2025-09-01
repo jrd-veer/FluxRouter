@@ -34,7 +34,7 @@ main() {
     
     print_header "BACKEND API CONTAINER"
     
-    # Simple container detection - adjust based on CI output
+    # Simple container detection - should work with consistent project naming
     BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1)
     
     if [[ -z "$BACKEND_CONTAINER" ]]; then
@@ -49,7 +49,7 @@ main() {
     run_test "Backend Health Check" "docker inspect --format='{{.State.Health.Status}}' $BACKEND_CONTAINER" "healthy"
     # Correctly inspect for the EXPOSED internal port, not the PUBLISHED port.
     run_test "Backend Internal Port Exposed" "docker inspect $BACKEND_CONTAINER --format='{{json .Config.ExposedPorts}}'" "5000/tcp"
-    run_test "Backend Not Externally Published" "! docker ps --format '{{.Names}} {{.Ports}}' | grep fluxrouter-backend | grep -q '0.0.0.0'" ""
+    run_test "Backend Not Externally Published" "! docker ps --format '{{.Names}} {{.Ports}}' | grep -E 'fluxrouter-backend' | grep -q '0.0.0.0'" ""
     
     print_header "NGINX PROXY ROUTING - API ENDPOINTS"
     run_test "API Health Endpoint" "curl -s http://localhost/api/health" '"status":"ok"' "true"
