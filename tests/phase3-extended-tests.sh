@@ -39,7 +39,7 @@ if [ -f /.dockerenv ]; then
 else
     # Running on host - need to test via Docker
     echo "Running unit tests via Docker Compose exec..."
-    docker compose exec -T backend python3 -m pytest test_app.py -v
+    docker compose -p fluxrouter exec -T backend python3 -m pytest test_app.py -v
     unit_test_result=$?
 fi
 
@@ -57,12 +57,12 @@ echo -e "\n${BOLD}${CYAN}🔧 INTEGRATION TESTS SECTION${NC}"
 echo -e "${CYAN}Note: This section uses shared test-lib functions for consistent reporting${NC}"
 
 print_header "NGINX CONFIGURATION VALIDATION"
-run_test "NGINX Config Syntax Check" "docker compose exec -T proxy nginx -t" ""
+run_test "NGINX Config Syntax Check" "docker compose -p fluxrouter exec -T proxy nginx -t" ""
 
 print_header "SSL CERTIFICATE VALIDATION"
-run_test "SSL Certificate Exists" "docker compose exec -T proxy test -f /etc/nginx/ssl/server.crt" ""
-run_test "SSL Private Key Exists" "docker compose exec -T proxy test -f /etc/nginx/ssl/server.key" ""
-run_test "SSL Certificate Validity" "docker compose exec -T proxy openssl x509 -in /etc/nginx/ssl/server.crt -noout -text | grep 'Not After'" "Not After"
+run_test "SSL Certificate Exists" "docker compose -p fluxrouter exec -T proxy test -f /etc/nginx/ssl/server.crt" ""
+run_test "SSL Private Key Exists" "docker compose -p fluxrouter exec -T proxy test -f /etc/nginx/ssl/server.key" ""
+run_test "SSL Certificate Validity" "docker compose -p fluxrouter exec -T proxy openssl x509 -in /etc/nginx/ssl/server.crt -noout -text | grep 'Not After'" "Not After"
 
 print_header "HTTPS FUNCTIONAL TESTS"
 run_test "HTTP to HTTPS Redirect" "curl -s -o /dev/null -w '%{http_code}' http://localhost" "301"
