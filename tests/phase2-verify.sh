@@ -33,10 +33,10 @@ main() {
     run_test "Updated Compose File" "grep -q 'fluxrouter-backend' ../docker-compose.yml" ""
     
     print_header "BACKEND API CONTAINER"
-    run_test "Backend Container Running" "docker ps --format '{{.Names}} {{.Status}}' | grep fluxrouter-backend" "Up"
-    run_test "Backend Health Check" "docker inspect --format='{{.State.Health.Status}}' fluxrouter-backend" "healthy"
+    run_test "Backend Container Running" "docker ps --format '{{.Names}} {{.Status}}' | grep -E 'fluxrouter-backend-[0-9]+.*Up'" "Up"
+    run_test "Backend Health Check" "docker inspect --format='{{.State.Health.Status}}' \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1)" "healthy"
     # Correctly inspect for the EXPOSED internal port, not the PUBLISHED port.
-    run_test "Backend Internal Port Exposed" "docker inspect fluxrouter-backend --format='{{json .Config.ExposedPorts}}'" "5000/tcp"
+    run_test "Backend Internal Port Exposed" "docker inspect \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) --format='{{json .Config.ExposedPorts}}'" "5000/tcp"
     run_test "Backend Not Externally Published" "! docker ps --format '{{.Names}} {{.Ports}}' | grep fluxrouter-backend | grep -q '0.0.0.0'" ""
     
     print_header "NGINX PROXY ROUTING - API ENDPOINTS"
@@ -47,11 +47,11 @@ main() {
     
     print_header "ENVIRONMENT VARIABLES"
     run_test "Environment File Exists" "test -f ../.env" ""
-    run_test "Backend Environment Variables" "docker exec fluxrouter-backend env | grep FLASK_ENV" "FLASK_ENV"
-    run_test "Secret Key Configuration" "docker exec fluxrouter-backend env | grep SECRET_KEY" "SECRET_KEY"
+    run_test "Backend Environment Variables" "docker exec \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) env | grep FLASK_ENV" "FLASK_ENV"
+    run_test "Secret Key Configuration" "docker exec \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) env | grep SECRET_KEY" "SECRET_KEY"
     
     print_header "HEALTH CHECKS - PHASE 2"
-    run_test "Backend Docker Health Check" "docker inspect fluxrouter-backend --format='{{.Config.Healthcheck.Test}}'" "api/health"
+    run_test "Backend Docker Health Check" "docker inspect \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) --format='{{.Config.Healthcheck.Test}}'" "api/health"
     run_test "Backend Health via Proxy" "curl -s http://localhost/api/health | jq -r '.service'" "fluxrouter-backend"
     run_test "Backend Response Time" "time curl -s http://localhost/api/health >/dev/null" "real"
     
@@ -71,7 +71,7 @@ main() {
     
     print_header "DIRECT ACCESS BLOCKING - PHASE 2"
     local backend_ip
-    backend_ip=$(docker inspect fluxrouter-backend --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' | head -1)
+    backend_ip=$(docker inspect $(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' | head -1)
 
     # In CI environments, we expect this to succeed and will only warn.
     # Locally, this test should fail with a timeout.
@@ -86,7 +86,7 @@ main() {
 
     # --- Summary ---
     print_summary
-    echo -e "\n${GREEN}${BOLD}🎉 ALL PHASE 2 TESTS PASSED!${NC}"
+    echo -e "\n${GREEN}${BOLD} ALL PHASE 2 TESTS PASSED!${NC}"
     echo -e "${GREEN}✅ Backend API container deployed and working${NC}"
     echo -e "${GREEN}✅ NGINX routing updated for /api endpoints${NC}"
     echo -e "${GREEN}✅ Environment variable management implemented${NC}"
