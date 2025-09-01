@@ -74,14 +74,46 @@ jobs:
           docker compose -p fluxrouter build
 
       - name: Tag Docker images
-        if: github.ref == 'refs/heads/main'
         run: |
-          # Tag images with commit SHA and latest
+          # Extract commit SHA and branch/tag info
           COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-8)
+          BRANCH_NAME=$(echo $GITHUB_REF | sed 's/refs\/heads\///' | sed 's/refs\/tags\///' | sed 's/refs\/pull\//pr-/' | sed 's/\/merge//')
+          
+          # Clean branch name for valid Docker tags (replace special chars with hyphens)
+          CLEAN_BRANCH=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9._-]/-/g' | tr '[:upper:]' '[:lower:]')
+          
+          echo "Branch: $BRANCH_NAME"
+          echo "Clean branch: $CLEAN_BRANCH"
+          echo "Commit SHA: $COMMIT_SHA"
+          
+          # Always tag with commit SHA
           docker tag fluxrouter-proxy:latest fluxrouter-proxy:$COMMIT_SHA
           docker tag fluxrouter-web:latest fluxrouter-web:$COMMIT_SHA
           docker tag fluxrouter-backend:latest fluxrouter-backend:$COMMIT_SHA
-          echo "Tagged images with commit SHA: $COMMIT_SHA"
+          
+          # Tag with branch-specific tags
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            # Main branch gets 'latest' and 'stable' tags
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:stable
+            docker tag fluxrouter-web:latest fluxrouter-web:stable
+            docker tag fluxrouter-backend:latest fluxrouter-backend:stable
+            echo "Tagged as: latest, stable, $COMMIT_SHA"
+          elif [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+            # Dev branch gets 'dev' and 'dev-<sha>' tags
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:dev
+            docker tag fluxrouter-web:latest fluxrouter-web:dev
+            docker tag fluxrouter-backend:latest fluxrouter-backend:dev
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:dev-$COMMIT_SHA
+            docker tag fluxrouter-web:latest fluxrouter-web:dev-$COMMIT_SHA
+            docker tag fluxrouter-backend:latest fluxrouter-backend:dev-$COMMIT_SHA
+            echo "Tagged as: dev, dev-$COMMIT_SHA, $COMMIT_SHA"
+          else
+            # Feature branches and PRs get branch-specific tags
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:$CLEAN_BRANCH-$COMMIT_SHA
+            docker tag fluxrouter-web:latest fluxrouter-web:$CLEAN_BRANCH-$COMMIT_SHA
+            docker tag fluxrouter-backend:latest fluxrouter-backend:$CLEAN_BRANCH-$COMMIT_SHA
+            echo "Tagged as: $CLEAN_BRANCH-$COMMIT_SHA, $COMMIT_SHA"
+          fi
 
       - name: Start services with scaling
         run: |
