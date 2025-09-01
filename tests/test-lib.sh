@@ -50,8 +50,9 @@ run_test() {
         # Show full output but limit to reasonable length
         if [[ -z "$output" ]]; then
             print_output "(no output - command succeeded with exit code 0)"
-        elif [[ ${#output} -gt 200 ]]; then
-            print_output "$(echo "$output" | head -5)..."
+        elif [[ ${#output} -gt 400 ]]; then
+            # For long output, show first 10 lines to capture headers
+            print_output "$(echo "$output" | head -10)..."
         else
             print_output "$output"
         fi
