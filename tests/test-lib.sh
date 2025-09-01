@@ -51,8 +51,8 @@ run_test() {
         if [[ -z "$output" ]]; then
             print_output "(no output - command succeeded with exit code 0)"
         elif [[ ${#output} -gt 400 ]]; then
-            # For long output, show first 10 lines to capture headers
-            print_output "$(echo "$output" | head -10)..."
+            # For long output, show first 15 lines to capture headers
+            print_output "$(echo "$output" | head -15)..."
         else
             print_output "$output"
         fi
