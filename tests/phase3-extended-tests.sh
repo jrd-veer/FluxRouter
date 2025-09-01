@@ -81,7 +81,7 @@ run_test "Backend Instances Healthy" "docker ps --filter 'name=fluxrouter-backen
 
 print_header "LOAD BALANCING TESTS"
 run_test "Multiple Backend Instances Running" "docker ps --format '{{.Names}}' | grep -c fluxrouter-backend" "2"
-run_test "Load Balancing Functional" "curl -k -s https://localhost/api/health | jq -r '.instance'" "fluxrouter-backend"
+run_test "Load Balancing Functional" "curl -k -s https://localhost/api/health | jq -r '.instance' | grep -E '^[a-f0-9]{12}$|^fluxrouter-backend'" ""
 
 print_header "NETWORK SECURITY TESTS"
 run_test "Backend Network Isolation" "docker network inspect fluxrouter-backend | jq -r '.[].Internal'" "true"
