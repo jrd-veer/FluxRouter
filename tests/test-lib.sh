@@ -21,7 +21,8 @@ TEST_NUMBER=0
 # --- Helper Functions for Output Formatting ---
 print_header() { echo -e "\n${BOLD}${BLUE}=== $1 ===${NC}"; }
 print_command() { echo -e "${DIM}${CYAN}    Command:${NC}${DIM} $1${NC}"; }
-print_output() { echo -e "${DIM}${CYAN}    Output:${NC}${DIM} $1${NC}"; }
+print_expected() { echo -e "${DIM}${YELLOW}    Expected:${NC}${DIM} $1${NC}"; }
+print_output() { echo -e "${DIM}${CYAN}    Actual Output:${NC}${DIM} $1${NC}"; }
 
 # --- Test Runner Functions ---
 
@@ -41,10 +42,19 @@ run_test() {
     if [[ $exit_code -eq 0 ]] && { [[ -n "$success_pattern" && "$output" == *"$success_pattern"* ]] || [[ -z "$success_pattern" ]]; }; then
         echo -e "Test $TEST_NUMBER - $test_name - ${GREEN}✅ PASS${NC}"
         print_command "$cmd"
-        if [[ "$show_full_output" == "true" ]]; then
-            print_output "$output"
+        if [[ -n "$success_pattern" ]]; then
+            print_expected "$success_pattern"
         else
-            print_output "$(echo "$output" | head -3 | tr '\n' ' ')..."
+            print_expected "Command should succeed (exit code 0)"
+        fi
+        # Show full output but limit to reasonable length
+        if [[ -z "$output" ]]; then
+            print_output "(no output - command succeeded with exit code 0)"
+        elif [[ ${#output} -gt 400 ]]; then
+            # For long output, show first 15 lines to capture headers
+            print_output "$(echo "$output" | head -15)..."
+        else
+            print_output "$output"
         fi
         ((TESTS_PASSED++))
         echo
@@ -52,6 +62,11 @@ run_test() {
     else
         echo -e "Test $TEST_NUMBER - $test_name - ${RED}❌ FAIL${NC}"
         print_command "$cmd"
+        if [[ -n "$success_pattern" ]]; then
+            print_expected "$success_pattern"
+        else
+            print_expected "Command should succeed (exit code 0)"
+        fi
         print_output "$output"
         ((TESTS_FAILED++))
         echo
@@ -83,6 +98,7 @@ run_failure_test() {
     if [[ "$output" == *"$failure_pattern"* ]] || [[ $exit_code -ne 0 && "$failure_pattern" == "timeout" ]]; then
         echo -e "Test $TEST_NUMBER - $test_name - ${GREEN}✅ PASS${NC}"
         print_command "$cmd"
+        print_expected "Should contain: $failure_pattern (or fail with timeout)"
         print_output "$output"
         ((TESTS_PASSED++))
         echo
@@ -90,6 +106,7 @@ run_failure_test() {
     else
         echo -e "Test $TEST_NUMBER - $test_name - ${RED}❌ FAIL${NC}"
         print_command "$cmd"
+        print_expected "Should contain: $failure_pattern (or fail with timeout)"
         print_output "$output (exit code: $exit_code)"
         ((TESTS_FAILED++))
         echo
@@ -124,6 +141,7 @@ run_warn_on_success_test() {
     if { [[ -n "$failure_pattern" && "$output" == *"$failure_pattern"* ]] || [[ $exit_code -ne 0 && "$failure_pattern" == "timeout" ]]; }; then
         echo -e "Test $TEST_NUMBER - $test_name - ${GREEN}✅ PASS${NC}"
         print_command "$cmd"
+        print_expected "Should contain: $failure_pattern (or fail with timeout)"
         print_output "$output"
         ((TESTS_PASSED++))
         echo
@@ -133,6 +151,7 @@ run_warn_on_success_test() {
         echo -e "${YELLOW}    This test succeeded but was expected to fail.${NC}"
         echo -e "${YELLOW}    This is a known behavior in some CI/Docker-in-Docker environments.${NC}"
         print_command "$cmd"
+        print_expected "Should contain: $failure_pattern (or fail with timeout)"
         print_output "$output (exit code: $exit_code)"
         # We still increment TESTS_PASSED to avoid failing the build.
         ((TESTS_PASSED++))

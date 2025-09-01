@@ -32,7 +32,7 @@ main() {
     run_test "File Structure Check" "test -f ../docker-compose.yml && test -d ../proxy && test -d ../web" ""
     
     print_header "CONTAINER STATUS"
-    run_test "All Containers Running" "docker ps --format '{{.Names}}' | grep -c fluxrouter" "3"
+    run_test "All Containers Running" "docker ps --format '{{.Names}}' | grep -c fluxrouter" "4"
     run_test "Proxy Health" "docker inspect --format='{{.State.Health.Status}}' fluxrouter-proxy" "healthy"
     run_test "Web Health" "docker inspect --format='{{.State.Health.Status}}' fluxrouter-web" "healthy"
 
@@ -41,18 +41,22 @@ main() {
     run_test "Proxy Port Exposed" "docker ps --format '{{.Names}} {{.Ports}}' | grep fluxrouter-proxy" "0.0.0.0:80->"
     
     print_header "CONNECTIVITY"
-    run_test "HTTP Connectivity" "curl -s --connect-timeout 5 http://localhost" "Hello from Web Server"
-    run_test "Content Delivery" "curl -s http://localhost" "Hello from Web Server via Reverse Proxy!"
+    run_test "HTTP to HTTPS Redirect Status" "curl -s -I http://localhost" "HTTP/1.1 301 Moved Permanently"
+    run_test "HTTP to HTTPS Redirect Location" "curl -s -I http://localhost" "Location: https://localhost/"
+    run_test "HTTPS Connectivity" "curl -s -k --connect-timeout 5 https://localhost" "Hello from Web Server via Reverse Proxy!"
+    run_test "Content Delivery (HTTPS)" "curl -s -k https://localhost" "Hello from Web Server via Reverse Proxy!"
     run_test "Internal Communication (Proxy to Web)" "docker exec fluxrouter-proxy ping -c 2 web" "2 packets transmitted, 2 packets received"
     
     print_header "SECURITY"
-    run_test "X-Frame-Options Header" "curl -s -I http://localhost" "X-Frame-Options: DENY" "true"
-    run_test "Content-Security-Policy Header" "curl -s -I http://localhost" "Content-Security-Policy: default-src 'self'" "true"
-    run_failure_test "TRACE Method Blocking" "curl -s -I -X TRACE http://localhost" "405 Not Allowed"
-    run_failure_test "OPTIONS Method Blocking" "curl -s -I -X OPTIONS http://localhost" "405 Not Allowed"
+    run_test "X-Frame-Options Header" "curl -s -I -k https://localhost" "x-frame-options: DENY"
+    run_test "Content-Security-Policy Header" "curl -s -I -k https://localhost" "content-security-policy: default-src 'self'"
+    run_failure_test "TRACE Method Blocking (HTTPS)" "curl -s -I -k -X TRACE https://localhost" "405"
+    run_failure_test "OPTIONS Method Blocking (HTTPS)" "curl -s -I -k -X OPTIONS https://localhost" "405"
 
     print_header "VIRTUAL HOSTS"
-    run_test "'localhost' Virtual Host" "curl -s -H 'Host: localhost' http://localhost" "Hello from Web Server"
+    run_test "'localhost' Virtual Host (HTTPS)" "curl -s -k -H 'Host: localhost' https://localhost" "Hello from Web Server via Reverse Proxy!"
+
+// ... existing code ...
     
     print_header "DIRECT ACCESS BLOCKING"
     local web_ip
@@ -71,7 +75,7 @@ main() {
 
     # --- Summary ---
     print_summary   
-    echo -e "\n${GREEN}${BOLD}🎉 ALL PHASE 1 TESTS PASSED!${NC}"
+    echo -e "\n${GREEN}${BOLD}ALL PHASE 1 TESTS PASSED!${NC}"
     echo -e "${GREEN}✅ All Phase 1 objectives met.${NC}"
 }
 

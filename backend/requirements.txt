@@ -7,6 +7,9 @@ Werkzeug==3.0.1
 # Production WSGI server
 gunicorn==21.2.0
 
+# Testing framework
+pytest==7.4.3
+
 # Security and monitoring (optional for Phase 2, ready for Phase 3)
 # flask-limiter==3.5.0
 # flask-cors==4.0.0

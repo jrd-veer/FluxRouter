@@ -19,12 +19,16 @@ A fully containerized web platform built with modern DevOps practices, featuring
 - Health checks for all services
 - GitHub Actions CI/CD pipeline
 
-### 🔄 Phase 3: Expert Level (Planned)
+### ✅ Phase 3: Expert Level (Completed)
 
-- HTTPS/SSL termination
-- Centralized logging (ELK/Loki stack)
-- Enhanced monitoring and alerting
-- Production deployment automation
+- HTTPS with self-signed certificates
+- HTTP to HTTPS redirection
+- Unit tests for backend application
+- Extended testing suite
+- Custom backend image from Alpine
+- Advanced CI/CD pipeline
+- Horizontal scaling with Docker Compose
+- Failure handling & load balancing
 
 ---
 
@@ -156,6 +160,17 @@ graph TD
 
 - Docker and Docker Compose
 - Git
+
+### Scaling Backend Services
+
+FluxRouter supports horizontal scaling of backend services:
+
+```bash
+# Start with 2 backend instances
+docker compose up --scale backend=2 -d
+```
+
+See [Scaling Guide](docs/scaling.md) for more details.
 
 ### Running the Platform
 

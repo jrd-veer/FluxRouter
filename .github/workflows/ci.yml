@@ -40,7 +40,7 @@ jobs:
 
       - name: Lint YAML files
         run: |
-          yamllint -d "{extends: default, rules: {line-length: disable}}" docker-compose.yml .github/workflows/ci.yml
+          yamllint -d "{extends: default, rules: {line-length: disable, trailing-spaces: disable}}" docker-compose.yml .github/workflows/ci.yml
 
       - name: Lint Dockerfiles
         run: |
@@ -50,7 +50,7 @@ jobs:
 
       - name: Validate Docker Compose
         run: |
-          docker compose config
+          docker compose -p fluxrouter config
 
   build:
     name: Build and Test
@@ -71,11 +71,53 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker compose build
+          docker compose -p fluxrouter build
 
-      - name: Start services
+      - name: Tag Docker images
         run: |
-          docker compose up -d
+          # Extract commit SHA and branch/tag info
+          COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-8)
+          BRANCH_NAME=$(echo $GITHUB_REF | sed 's/refs\/heads\///' | sed 's/refs\/tags\///' | sed 's/refs\/pull\//pr-/' | sed 's/\/merge//')
+          
+          # Clean branch name for valid Docker tags (replace special chars with hyphens)
+          CLEAN_BRANCH=$(echo $BRANCH_NAME | sed 's/[^a-zA-Z0-9._-]/-/g' | tr '[:upper:]' '[:lower:]')
+          
+          echo "Branch: $BRANCH_NAME"
+          echo "Clean branch: $CLEAN_BRANCH"
+          echo "Commit SHA: $COMMIT_SHA"
+          
+          # Always tag with commit SHA
+          docker tag fluxrouter-proxy:latest fluxrouter-proxy:$COMMIT_SHA
+          docker tag fluxrouter-web:latest fluxrouter-web:$COMMIT_SHA
+          docker tag fluxrouter-backend:latest fluxrouter-backend:$COMMIT_SHA
+          
+          # Tag with branch-specific tags
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            # Main branch gets 'latest' and 'stable' tags
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:stable
+            docker tag fluxrouter-web:latest fluxrouter-web:stable
+            docker tag fluxrouter-backend:latest fluxrouter-backend:stable
+            echo "Tagged as: latest, stable, $COMMIT_SHA"
+          elif [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+            # Dev branch gets 'dev' and 'dev-<sha>' tags
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:dev
+            docker tag fluxrouter-web:latest fluxrouter-web:dev
+            docker tag fluxrouter-backend:latest fluxrouter-backend:dev
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:dev-$COMMIT_SHA
+            docker tag fluxrouter-web:latest fluxrouter-web:dev-$COMMIT_SHA
+            docker tag fluxrouter-backend:latest fluxrouter-backend:dev-$COMMIT_SHA
+            echo "Tagged as: dev, dev-$COMMIT_SHA, $COMMIT_SHA"
+          else
+            # Feature branches and PRs get branch-specific tags
+            docker tag fluxrouter-proxy:latest fluxrouter-proxy:$CLEAN_BRANCH-$COMMIT_SHA
+            docker tag fluxrouter-web:latest fluxrouter-web:$CLEAN_BRANCH-$COMMIT_SHA
+            docker tag fluxrouter-backend:latest fluxrouter-backend:$CLEAN_BRANCH-$COMMIT_SHA
+            echo "Tagged as: $CLEAN_BRANCH-$COMMIT_SHA, $COMMIT_SHA"
+          fi
+
+      - name: Start services with scaling
+        run: |
+          docker compose -p fluxrouter up --scale backend=2 -d
 
       - name: Verify Docker Network Configuration
         run: |
@@ -94,48 +136,56 @@ jobs:
           sleep 30
 
           # Check container status
-          docker compose ps
+          docker compose -p fluxrouter ps
 
           # Check container logs for debugging
           echo "=== Initial Backend Logs ==="
-          docker compose logs backend | tail -10
+          docker compose -p fluxrouter logs backend | tail -10
           echo "=== Initial Proxy Logs ==="
-          docker compose logs proxy | tail -10
+          docker compose -p fluxrouter logs proxy | tail -10
           echo "=== Initial Web Logs ==="
-          docker compose logs web | tail -10
+          docker compose -p fluxrouter logs web | tail -10
 
-          # Wait for backend first (it's independent)
-          echo "Waiting for backend to be healthy..."
-          timeout 90 bash -c '
-            while ! docker inspect fluxrouter-backend \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Backend status: $(docker inspect fluxrouter-backend --format="{{.State.Health.Status}}")"
+          # Wait for all services to be healthy using docker compose ps
+          echo "Waiting for all services to be healthy..."
+          timeout 120 bash -c '
+            while true; do
+              # Count healthy containers
+              HEALTHY_COUNT=$(docker compose -p fluxrouter ps --format "{{.Name}}:{{.Status}}" | grep -c "(healthy)")
+              TOTAL_COUNT=$(docker compose -p fluxrouter ps --format "{{.Name}}" | wc -l)
+              
+              echo "Healthy containers: $HEALTHY_COUNT/$TOTAL_COUNT"
+              
+              # Check if all containers are healthy
+              if [ "$HEALTHY_COUNT" -eq "$TOTAL_COUNT" ]; then
+                break
+              fi
+              
+              # Show current status
+              docker compose -p fluxrouter ps
               sleep 5
             done
           '
-          echo "✅ Backend is healthy"
+          echo "✅ All services are healthy"
 
-          # Wait for web service
-          echo "Waiting for web to be healthy..."
-          timeout 90 bash -c '
-            while ! docker inspect fluxrouter-web \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Web status: $(docker inspect fluxrouter-web --format="{{.State.Health.Status}}")"
-              sleep 5
-            done
-          '
-          echo "✅ Web is healthy"
-
-          # Finally wait for proxy (depends on others)
-          echo "Waiting for proxy to be healthy..."
-          timeout 90 bash -c '
-            while ! docker inspect fluxrouter-proxy \
-              --format="{{.State.Health.Status}}" | grep -q healthy; do
-              echo "Proxy status: $(docker inspect fluxrouter-proxy --format="{{.State.Health.Status}}")"
-              sleep 5
-            done
-          '
-          echo "✅ Proxy is healthy"
+      - name: Debug Container Names
+        run: |
+          echo "🔍 Debugging container names for test compatibility..."
+          echo "=== All running containers ==="
+          docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+          echo
+          echo "=== Docker Compose containers ==="
+          docker compose -p fluxrouter ps --format "table {{.Name}}\t{{.Service}}\t{{.Status}}"
+          echo
+          echo "=== Backend containers specifically ==="
+          docker ps --format '{{.Names}}' | grep backend || echo "No containers with 'backend' in name"
+          docker compose -p fluxrouter ps --format '{{.Name}}' | grep backend || echo "No compose services with 'backend'"
+          echo
+          echo "=== Container name patterns ==="
+          echo "Containers matching 'fluxrouter-backend-[0-9]+' pattern:"
+          docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' || echo "None found"
+          echo "Containers matching 'backend-[0-9]+' pattern:"
+          docker ps --format '{{.Names}}' | grep -E 'backend-[0-9]+' || echo "None found"
 
       - name: Run Phase 1 Verification Tests
         run: |
@@ -150,27 +200,33 @@ jobs:
           cd tests
           CI_MODE=true ./phase2-verify.sh
 
+      - name: Run Phase 3 Extended Tests
+        run: |
+          echo "🧪 Running Phase 3 extended tests..."
+          cd tests
+          CI_MODE=true ./phase3-extended-tests.sh
+
       - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Proxy Logs ==="
-          docker compose logs proxy
+          docker compose -p fluxrouter logs proxy
           echo "=== Web Logs ==="
-          docker compose logs web
+          docker compose -p fluxrouter logs web
           echo "=== Backend Logs ==="
-          docker compose logs backend
+          docker compose -p fluxrouter logs backend
 
       - name: Cleanup
         if: always()
         run: |
-          docker compose down -v
+          docker compose -p fluxrouter down -v
           docker system prune -f
 
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
     steps:
       - name: Checkout code

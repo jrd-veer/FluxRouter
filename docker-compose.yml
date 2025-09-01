@@ -8,6 +8,7 @@ services:
     container_name: fluxrouter-proxy
     ports:
       - "80:80"
+      - "443:443"
     networks:
       - frontend
       - backend
@@ -16,9 +17,7 @@ services:
       - backend
     restart: unless-stopped
     healthcheck:
-      test: >
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider",
-         "http://localhost/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -37,9 +36,7 @@ services:
       - backend
     restart: unless-stopped
     healthcheck:
-      test: >
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider",
-         "http://localhost/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,33 +45,37 @@ services:
       - "com.fluxrouter.service=web"
       - "com.fluxrouter.description=Static web server"
 
-  # Backend API Server - Internal only
+  # Backend API Server - Internal only (Scalable)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: fluxrouter-backend
+    # No container_name to allow scaling
     environment:
       - FLASK_ENV=${FLASK_ENV:-production}
       - DEBUG=${DEBUG:-false}
       - SECRET_KEY=${SECRET_KEY:-change-in-production}
       - HOST=0.0.0.0
       - PORT=5000
+      # INSTANCE_ID will be set dynamically by container hostname
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
     healthcheck:
-      test: >
-        ["CMD", "python3", "-c",
-         "import urllib.request;",
-         "urllib.request.urlopen('http://localhost:5000/api/health')"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 45s
     labels:
       - "com.fluxrouter.service=backend"
-      - "com.fluxrouter.description=Flask API backend server"
+      - "com.fluxrouter.description=Flask API backend server (scalable)"
 
 networks:
   # Frontend network for proxy external access

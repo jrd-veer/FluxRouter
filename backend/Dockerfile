@@ -24,6 +24,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app.py .
+COPY test_app.py .
 
 # Set proper ownership
 RUN chown -R appuser:appuser /app
