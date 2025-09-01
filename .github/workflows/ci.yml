@@ -136,6 +136,25 @@ jobs:
           '
           echo "✅ All services are healthy"
 
+      - name: Debug Container Names
+        run: |
+          echo "🔍 Debugging container names for test compatibility..."
+          echo "=== All running containers ==="
+          docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+          echo
+          echo "=== Docker Compose containers ==="
+          docker compose ps --format "table {{.Name}}\t{{.Service}}\t{{.Status}}"
+          echo
+          echo "=== Backend containers specifically ==="
+          docker ps --format '{{.Names}}' | grep backend || echo "No containers with 'backend' in name"
+          docker compose ps --format '{{.Name}}' | grep backend || echo "No compose services with 'backend'"
+          echo
+          echo "=== Container name patterns ==="
+          echo "Containers matching 'fluxrouter-backend-[0-9]+' pattern:"
+          docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' || echo "None found"
+          echo "Containers matching 'backend-[0-9]+' pattern:"
+          docker ps --format '{{.Names}}' | grep -E 'backend-[0-9]+' || echo "None found"
+
       - name: Run Phase 1 Verification Tests
         run: |
           echo "🧪 Running Phase 1 verification tests..."

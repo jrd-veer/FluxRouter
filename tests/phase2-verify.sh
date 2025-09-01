@@ -29,30 +29,18 @@ main() {
     
     print_header "PHASE 2 PREREQUISITES"
     run_test "Backend Directory Structure" "test -d ../backend && test -f ../backend/Dockerfile && test -f ../backend/app.py" ""
-    run_test "Backend Container Present" "docker ps --format '{{.Names}}' | grep -q fluxrouter-backend" ""
+    run_test "Backend Container Present" "docker ps --format '{{.Names}}' | grep -q backend" ""
     run_test "Updated Compose File" "grep -q 'fluxrouter-backend' ../docker-compose.yml" ""
     
     print_header "BACKEND API CONTAINER"
     
-    # Get the first backend container name - try multiple patterns for robustness
+    # Simple container detection - adjust based on CI output
     BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1)
-    
-    # Fallback: try without the number suffix in case of different naming in CI
-    if [[ -z "$BACKEND_CONTAINER" ]]; then
-        BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep 'fluxrouter-backend' | head -1)
-    fi
-    
-    # Final fallback: try just 'backend' if compose service name is used
-    if [[ -z "$BACKEND_CONTAINER" ]]; then
-        BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^backend' | head -1)
-    fi
     
     if [[ -z "$BACKEND_CONTAINER" ]]; then
         echo -e "${RED}❌ ERROR: No backend containers found${NC}"
         echo -e "${YELLOW}Available containers:${NC}"
         docker ps --format '{{.Names}}'
-        echo -e "${YELLOW}Trying alternative detection methods...${NC}"
-        docker compose ps --format '{{.Name}}'
         exit 1
     fi
     echo -e "${CYAN}Using backend container: $BACKEND_CONTAINER${NC}"
