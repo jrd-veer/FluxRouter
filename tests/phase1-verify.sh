@@ -32,7 +32,7 @@ main() {
     run_test "File Structure Check" "test -f ../docker-compose.yml && test -d ../proxy && test -d ../web" ""
     
     print_header "CONTAINER STATUS"
-    run_test "All Containers Running" "docker ps --format '{{.Names}}' | grep -c fluxrouter" "3"
+    run_test "All Containers Running" "docker ps --format '{{.Names}}' | grep -c fluxrouter" "4"
     run_test "Proxy Health" "docker inspect --format='{{.State.Health.Status}}' fluxrouter-proxy" "healthy"
     run_test "Web Health" "docker inspect --format='{{.State.Health.Status}}' fluxrouter-web" "healthy"
 
