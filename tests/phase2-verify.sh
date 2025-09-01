@@ -33,10 +33,34 @@ main() {
     run_test "Updated Compose File" "grep -q 'fluxrouter-backend' ../docker-compose.yml" ""
     
     print_header "BACKEND API CONTAINER"
+    
+    # Get the first backend container name - try multiple patterns for robustness
+    BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1)
+    
+    # Fallback: try without the number suffix in case of different naming in CI
+    if [[ -z "$BACKEND_CONTAINER" ]]; then
+        BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep 'fluxrouter-backend' | head -1)
+    fi
+    
+    # Final fallback: try just 'backend' if compose service name is used
+    if [[ -z "$BACKEND_CONTAINER" ]]; then
+        BACKEND_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^backend' | head -1)
+    fi
+    
+    if [[ -z "$BACKEND_CONTAINER" ]]; then
+        echo -e "${RED}❌ ERROR: No backend containers found${NC}"
+        echo -e "${YELLOW}Available containers:${NC}"
+        docker ps --format '{{.Names}}'
+        echo -e "${YELLOW}Trying alternative detection methods...${NC}"
+        docker compose ps --format '{{.Name}}'
+        exit 1
+    fi
+    echo -e "${CYAN}Using backend container: $BACKEND_CONTAINER${NC}"
+    
     run_test "Backend Container Running" "docker ps --format '{{.Names}} {{.Status}}' | grep -E 'fluxrouter-backend-[0-9]+.*Up'" "Up"
-    run_test "Backend Health Check" "docker inspect --format='{{.State.Health.Status}}' \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1)" "healthy"
+    run_test "Backend Health Check" "docker inspect --format='{{.State.Health.Status}}' $BACKEND_CONTAINER" "healthy"
     # Correctly inspect for the EXPOSED internal port, not the PUBLISHED port.
-    run_test "Backend Internal Port Exposed" "docker inspect \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) --format='{{json .Config.ExposedPorts}}'" "5000/tcp"
+    run_test "Backend Internal Port Exposed" "docker inspect $BACKEND_CONTAINER --format='{{json .Config.ExposedPorts}}'" "5000/tcp"
     run_test "Backend Not Externally Published" "! docker ps --format '{{.Names}} {{.Ports}}' | grep fluxrouter-backend | grep -q '0.0.0.0'" ""
     
     print_header "NGINX PROXY ROUTING - API ENDPOINTS"
@@ -47,11 +71,11 @@ main() {
     
     print_header "ENVIRONMENT VARIABLES"
     run_test "Environment File Exists" "test -f ../.env" ""
-    run_test "Backend Environment Variables" "docker exec \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) env | grep FLASK_ENV" "FLASK_ENV"
-    run_test "Secret Key Configuration" "docker exec \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) env | grep SECRET_KEY" "SECRET_KEY"
+    run_test "Backend Environment Variables" "docker exec $BACKEND_CONTAINER env | grep FLASK_ENV" "FLASK_ENV"
+    run_test "Secret Key Configuration" "docker exec $BACKEND_CONTAINER env | grep SECRET_KEY" "SECRET_KEY"
     
     print_header "HEALTH CHECKS - PHASE 2"
-    run_test "Backend Docker Health Check" "docker inspect \$(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) --format='{{.Config.Healthcheck.Test}}'" "api/health"
+    run_test "Backend Docker Health Check" "docker inspect $BACKEND_CONTAINER --format='{{.Config.Healthcheck.Test}}'" "api/health"
     run_test "Backend Health via Proxy" "curl -s http://localhost/api/health | jq -r '.service'" "fluxrouter-backend"
     run_test "Backend Response Time" "time curl -s http://localhost/api/health >/dev/null" "real"
     
@@ -71,7 +95,7 @@ main() {
     
     print_header "DIRECT ACCESS BLOCKING - PHASE 2"
     local backend_ip
-    backend_ip=$(docker inspect $(docker ps --format '{{.Names}}' | grep -E 'fluxrouter-backend-[0-9]+' | head -1) --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' | head -1)
+    backend_ip=$(docker inspect $BACKEND_CONTAINER --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' | head -1)
 
     # In CI environments, we expect this to succeed and will only warn.
     # Locally, this test should fail with a timeout.
