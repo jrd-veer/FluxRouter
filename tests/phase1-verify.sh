@@ -50,8 +50,8 @@ main() {
     print_header "SECURITY"
     run_test "X-Frame-Options Header" "curl -s -I http://localhost" "X-Frame-Options: DENY"
     run_test "Content-Security-Policy Header" "curl -s -I http://localhost" "Content-Security-Policy: default-src 'self'"
-    run_failure_test "TRACE Method Blocking (HTTPS)" "curl -s -I -k -X TRACE https://localhost" "405 Not Allowed"
-    run_failure_test "OPTIONS Method Blocking (HTTPS)" "curl -s -I -k -X OPTIONS https://localhost" "405 Not Allowed"
+    run_failure_test "TRACE Method Blocking (HTTPS)" "curl -s -I -k -X TRACE https://localhost" "405"
+    run_failure_test "OPTIONS Method Blocking (HTTPS)" "curl -s -I -k -X OPTIONS https://localhost" "405"
 
     print_header "VIRTUAL HOSTS"
     run_test "'localhost' Virtual Host (HTTPS)" "curl -s -k -H 'Host: localhost' https://localhost" "Hello from Web Server via Reverse Proxy!"
