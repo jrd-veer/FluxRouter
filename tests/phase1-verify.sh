@@ -48,8 +48,8 @@ main() {
     run_test "Internal Communication (Proxy to Web)" "docker exec fluxrouter-proxy ping -c 2 web" "2 packets transmitted, 2 packets received"
     
     print_header "SECURITY"
-    run_test "X-Frame-Options Header" "curl -s -I http://localhost" "X-Frame-Options: DENY"
-    run_test "Content-Security-Policy Header" "curl -s -I http://localhost" "Content-Security-Policy: default-src 'self'"
+    run_test "X-Frame-Options Header" "curl -s -I -k https://localhost" "X-Frame-Options: DENY"
+    run_test "Content-Security-Policy Header" "curl -s -I -k https://localhost" "Content-Security-Policy: default-src 'self'"
     run_failure_test "TRACE Method Blocking (HTTPS)" "curl -s -I -k -X TRACE https://localhost" "405"
     run_failure_test "OPTIONS Method Blocking (HTTPS)" "curl -s -I -k -X OPTIONS https://localhost" "405"
 
@@ -75,7 +75,7 @@ main() {
 
     # --- Summary ---
     print_summary   
-    echo -e "\n${GREEN}${BOLD}🎉 ALL PHASE 1 TESTS PASSED!${NC}"
+    echo -e "\n${GREEN}${BOLD}ALL PHASE 1 TESTS PASSED!${NC}"
     echo -e "${GREEN}✅ All Phase 1 objectives met.${NC}"
 }
 

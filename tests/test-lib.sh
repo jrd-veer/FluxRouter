@@ -48,7 +48,9 @@ run_test() {
             print_expected "Command should succeed (exit code 0)"
         fi
         # Show full output but limit to reasonable length
-        if [[ ${#output} -gt 200 ]]; then
+        if [[ -z "$output" ]]; then
+            print_output "(no output - command succeeded with exit code 0)"
+        elif [[ ${#output} -gt 200 ]]; then
             print_output "$(echo "$output" | head -5)..."
         else
             print_output "$output"
